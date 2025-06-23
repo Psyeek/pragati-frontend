@@ -1,0 +1,248 @@
+/* Base Layout */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #3271f1, #447ce4);
+    background-size: 200% 200%;
+    animation: gradientBG 12s ease infinite;
+    overflow: auto;
+  }
+  
+  
+  
+  #root {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+  }
+  
+  
+  @keyframes gradientBG {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  
+  /* Login Wrapper */
+  .login-wrapper {
+    width: 100%;
+    padding: 40px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: transparent;
+  }
+  
+  
+  
+  
+  /* Logo Section */
+  .logo-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  
+  .pragati-logo {
+    width: 240px;
+    max-width: 90%;
+    filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.4));
+  }
+  
+  /* Canvas Section */
+  .canvas {
+    text-align: center;
+    color: #fff;
+    animation: fadeIn 1s ease-in-out;
+    margin-bottom: 24px;
+  }
+  
+  .canvas h1 {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  
+  .canvas p {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.9);
+  }
+  
+  .canvas button {
+    background: #ffffff;
+    color: #002855;
+    border: none;
+    border-radius: 8px;
+    padding: 14px 28px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: transform 0.2s, background-color 0.3s ease;
+    animation: bounce 2s infinite;
+  }
+  
+  .canvas button:hover {
+    transform: translateY(-3px);
+    background-color: #e6e6e6;
+  }
+  
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  
+  /* Loading Screen */
+  .progress-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 1000;
+  }
+  
+  .progress-container img {
+    width: 70px;
+    animation: spin 1.5s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  /* Tab Section */
+  .tabs-container {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  
+  .tab {
+    padding: 10px 28px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    background-color: #004080;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .tab:hover {
+    background-color: #003366;
+  }
+  
+  .tab.active {
+    background-color: #001f3f;
+  }
+  
+  /* Login Form */
+  .form-container {
+    background-color: #ffffff;
+    color: #002855;
+    padding: 40px 32px;
+    border-radius: 14px;
+    box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.4);
+    width: 400px;
+    max-width: 90%;
+    animation: fadeIn 1s ease-in;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+  
+  .form-container input {
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0;
+    background-color: #e6f0ff;
+    color: #002855;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+  }
+  
+  .form-container input:focus {
+    background-color: white;
+    border-color: #0056b3;
+    box-shadow: 0px 0px 6px rgba(0, 86, 179, 0.4);
+  }
+  
+  .form-container button {
+    width: 100%;
+    padding: 12px;
+    background: #002855;
+    color: #ffffff;
+    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .form-container button:hover {
+    background-color: #004080;
+  }
+  
+  /* Learn More Button (Forgot Password) */
+  .learn-more-btn {
+    background: #002855;
+    color: #fff;
+    padding: 12px;
+    width: 100%;
+    font-size: 14px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  
+  .learn-more-btn:hover {
+    background: #003366;
+  }
+  
+  /* Forgot Password Text */
+  .forgot-password {
+    margin-top: 16px;
+    font-size: 14px;
+    color: #002855;
+    text-align: center;
+  }
+  
+  /* Error Popup */
+  .error-popup {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ff4444;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 6px;
+    box-shadow: 0px 6px 14px rgba(0, 0, 0, 0.4);
+    z-index: 9999;
+    font-weight: 500;
+    animation: fadeIn 0.5s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
