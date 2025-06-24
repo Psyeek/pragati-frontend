@@ -104,66 +104,32 @@ const CreateRequest = () => {
     setShowPopup(false);
     if (confirmed) {
       try {
-        const formData = new FormData();
-        formData.append("projectName", projectName);
-        formData.append("location", projectArea);
-        formData.append("status", "PENDING");
-        formData.append("workflowStep", 1);
-        formData.append("additionalNotes", additionalNotes);
-        formData.append("estimation", JSON.stringify(estimationRows));
-        formData.append("natureOfWork", natureOfWork);
-        formData.append("startDate", startDate);
-        formData.append("comment", purpose);
-
-        // Handle request letters
-        let letterCount = 0;
-        requestLetters.forEach((f, index) => {
-          if (f.file) {
-            formData.append("requestLetters", f.file);
-            letterCount++;
-            console.log(`Adding request letter: ${f.file.name} (${f.file.size} bytes)`);
-          }
-        });
-
-        // Handle site images
-        let imageCount = 0;
-        siteImages.forEach((f, index) => {
-          if (f.file) {
-            formData.append("siteImages", f.file);
-            imageCount++;
-            console.log(`Adding site image: ${f.file.name} (${f.file.size} bytes)`);
-          }
-        });
-
-        // Debug: Log FormData contents
-        console.log("FormData contents:");
-        for (let [key, value] of formData.entries()) {
-          if (value instanceof File) {
-            console.log(`${key}: File - ${value.name} (${value.size} bytes)`);
-          } else {
-            console.log(`${key}:`, value);
-          }
-        }
-
-        console.log("Submitting form data:", {
+        // Calculate total before submission
+        calculateTotal();
+        
+        const requestData = {
           projectName,
-          projectArea,
+          location: projectArea,
+          status: "PENDING",
+          workflowStep: 1,
+          additionalNotes,
+          estimation: JSON.stringify(estimationRows),
+          totalEstimate: parseFloat(totalEstimate) || 0,
           natureOfWork,
           startDate,
-          purpose,
-          additionalNotes,
-          estimationRows,
-          requestLettersCount: letterCount,
-          siteImagesCount: imageCount
+          comment: purpose,
+        };
+
+        // Note: File uploads are temporarily disabled for debugging the 415 error.
+        // We are sending data as JSON to test the endpoint.
+
+        console.log("Submitting form data as JSON:", requestData);
+
+        const response = await axios.post('http://localhost:8808/api/createFlow-json', requestData, {
+          headers: { 'Content-Type': 'application/json' },
+          withCredentials: true,
         });
 
-        // Validate that we have at least some data
-        if (!projectName.trim() && !projectArea.trim()) {
-          alert("Please fill in at least the project name and area.");
-          return;
-        }
-
-        const response = await createRequest(formData);
         console.log("Submission successful:", response);
         setSuccessMessage("Request submitted successfully! 🎉");
         setShowSuccess(true);
@@ -184,38 +150,31 @@ const CreateRequest = () => {
   // Draft
   const handleSaveDraft = async () => {
     try {
-      const formData = new FormData();
-      formData.append("projectName", projectName);
-      formData.append("location", projectArea);
-      formData.append("status", "DRAFT");
-      formData.append("workflowStep", 1);
-      formData.append("additionalNotes", additionalNotes);
-      formData.append("estimation", JSON.stringify(estimationRows));
-      formData.append("natureOfWork", natureOfWork);
-      formData.append("startDate", startDate);
-      formData.append("comment", purpose);
+      // Calculate total before saving draft
+      calculateTotal();
       
-      // Handle request letters
-      requestLetters.forEach((f, index) => {
-        if (f.file) {
-          formData.append("requestLetters", f.file);
-        }
+      const draftData = {
+        projectName,
+        location: projectArea,
+        status: "DRAFT",
+        workflowStep: 1,
+        additionalNotes,
+        estimation: JSON.stringify(estimationRows),
+        totalEstimate: parseFloat(totalEstimate) || 0,
+        natureOfWork,
+        startDate,
+        comment: purpose,
+      };
+
+      // Note: File uploads are temporarily disabled.
+      
+      console.log("Saving draft as JSON:", draftData);
+
+      const response = await axios.post('http://localhost:8808/api/createFlow-json', draftData, {
+        headers: { 'Content-Type': 'application/json' },
+        withCredentials: true,
       });
 
-      // Handle site images
-      siteImages.forEach((f, index) => {
-        if (f.file) {
-          formData.append("siteImages", f.file);
-        }
-      });
-
-      // Debug: Log FormData contents
-      console.log("Draft FormData contents:");
-      for (let [key, value] of formData.entries()) {
-        console.log(`${key}:`, value);
-      }
-
-      const response = await createRequest(formData);
       console.log("Draft saved successfully:", response);
       alert("Draft saved successfully.");
     } catch (err) {
@@ -227,6 +186,9 @@ const CreateRequest = () => {
   // Test submission without files
   const testSubmission = async () => {
     try {
+      // Calculate total before test submission
+      calculateTotal();
+      
       const testData = {
         projectName: projectName || "Test Project",
         location: projectArea || "Test Area",
@@ -234,6 +196,7 @@ const CreateRequest = () => {
         workflowStep: 1,
         additionalNotes: additionalNotes || "Test notes",
         estimation: JSON.stringify(estimationRows),
+        totalEstimate: parseFloat(totalEstimate) || 0,
         natureOfWork: natureOfWork || "New Construction",
         startDate: startDate || "2024-01-01",
         comment: purpose || "Test purpose"
@@ -294,11 +257,12 @@ const CreateRequest = () => {
           <div className="page-content">
             {requestLetters.map((entry, i) => (
               <div key={i} className="file-upload-container">
-                <input type="file" onChange={(e) => updateFiles(setRequestLetters, i, e.target.files[0])} />
+                <input type="file" accept="application/pdf" onChange={(e) => updateFiles(setRequestLetters, i, e.target.files[0])} disabled />
                 <button onClick={() => removeField(setRequestLetters, i)}>✕</button>
               </div>
             ))}
             <button className="btn" onClick={() => addField(setRequestLetters)}>Add Letter</button>
+            <p style={{color: 'orange'}}>File uploads are temporarily disabled.</p>
           </div>
         );
       case "site-images":
@@ -306,11 +270,12 @@ const CreateRequest = () => {
           <div className="page-content">
             {siteImages.map((entry, i) => (
               <div key={i} className="file-upload-container">
-                <input type="file" accept="image/*" onChange={(e) => updateFiles(setSiteImages, i, e.target.files[0])} />
+                <input type="file" accept="image/*" onChange={(e) => updateFiles(setSiteImages, i, e.target.files[0])} disabled />
                 <button onClick={() => removeField(setSiteImages, i)}>✕</button>
               </div>
             ))}
             <button className="btn" onClick={() => addField(setSiteImages)}>Add Image</button>
+            <p style={{color: 'orange'}}>File uploads are temporarily disabled.</p>
           </div>
         );
       case "project-estimation":

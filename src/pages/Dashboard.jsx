@@ -93,6 +93,11 @@ const Dashboard = () => {
     } catch (e) {
       estimation = [];
     }
+
+    // Calculate total from estimation array if totalEstimate is not available
+    const calculatedTotal = estimation.reduce((sum, row) => sum + (parseFloat(row.subtotal) || 0), 0);
+    const totalToShow = request.totalEstimate || calculatedTotal;
+
     return (
       <div className="modal-overlay" onClick={() => setShowModal(false)}>
         <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -132,6 +137,10 @@ const Dashboard = () => {
                       <td>{row.subtotal}</td>
                     </tr>
                   ))}
+                  <tr style={{fontWeight: 'bold', backgroundColor: '#f5f5f5'}}>
+                    <td colSpan="4" style={{textAlign: 'right'}}>Total Estimate:</td>
+                    <td>₹{totalToShow.toFixed(2)}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -139,8 +148,6 @@ const Dashboard = () => {
           <div style={{display:'flex', justifyContent:'flex-end', gap:'1em', marginTop:'2em'}}>
             <button className="btn" style={{background:'#4caf50', color:'white'}} onClick={() => alert('Project Approved!')}>Approve</button>
             <button className="btn" style={{background:'#f44336', color:'white'}} onClick={() => alert('Project Rejected!')}>Reject</button>
-            <button className="btn" style={{background:'##0000FF', color:'white'}} onClick={() => alert('Project Rejected!')}>See full quotation</button>
-            
           </div>
         </div>
       </div>
