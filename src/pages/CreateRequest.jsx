@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "../styles/CreateRequest.css";
 import { useNavigate } from "react-router-dom";
 import { createRequest } from "../services/requestService";
@@ -16,8 +16,8 @@ const CreateRequest = () => {
   const [purpose, setPurpose] = useState("");
   const [additionalNotes, setAdditionalNotes] = useState("");
 
-  const [requestLetters, setRequestLetters] = useState([{ file: null }]);
-  const [siteImages, setSiteImages] = useState([{ file: null }]);
+  const [requestLetters, setRequestLetters] = useState([{ file: null, preview: null }]);
+  const [siteImages, setSiteImages] = useState([{ file: null, preview: null }]);
 
   const [estimationRows, setEstimationRows] = useState([
     { item: "", description: "", quantity: "", rate: "", subtotal: 0 },
@@ -28,27 +28,132 @@ const CreateRequest = () => {
   const [showPopup, setShowPopup] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Helper function to convert file to base64
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        // Remove the data URL prefix (e.g., "data:application/pdf;base64,")
+        const base64 = reader.result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup image preview URLs to prevent memory leaks
+      siteImages.forEach(entry => {
+        if (entry.preview) {
+          URL.revokeObjectURL(entry.preview);
+        }
+      });
+    };
+  }, []);
 
   // File/Image handlers
-  const updateFiles = (setState, index, file) => {
+  const updateRequestLetters = (index, file) => {
     if (file) {
-      const updated = [...setState];
-      updated[index].file = file;
-      setState(updated);
-      console.log(`File updated at index ${index}:`, file.name, file.size);
+      // Validate file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        alert(`File size must be less than 10MB. Current size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+        return;
+      }
+
+      // Validate file type
+      if (file.type !== 'application/pdf') {
+        alert('Please select a PDF file for request letters.');
+        return;
+      }
+
+      setRequestLetters(prev => {
+        const updated = [...prev];
+        
+        // Clean up old preview URL if it exists
+        if (updated[index] && updated[index].preview) {
+          URL.revokeObjectURL(updated[index].preview);
+        }
+
+        updated[index] = { file, preview: null }; // PDFs don't need preview
+        console.log(`Request letter updated at index ${index}:`, file.name, file.size, file.type);
+        return updated;
+      });
     }
   };
 
-  const addField = (setState) => {
-    setState((prev) => [...prev, { file: null }]);
+  const updateSiteImages = (index, file) => {
+    if (file) {
+      // Validate file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        alert(`File size must be less than 10MB. Current size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file (JPG, PNG, GIF, etc.) for site images.');
+        return;
+      }
+
+      setSiteImages(prev => {
+        const updated = [...prev];
+        
+        // Clean up old preview URL if it exists
+        if (updated[index] && updated[index].preview) {
+          URL.revokeObjectURL(updated[index].preview);
+        }
+
+        // Create preview for images
+        const preview = URL.createObjectURL(file);
+        updated[index] = { file, preview };
+        console.log(`Site image updated at index ${index}:`, file.name, file.size, file.type);
+        return updated;
+      });
+    }
   };
 
-  const removeField = (setState, index) => {
-    setState((prev) => {
+  const addRequestLetter = () => {
+    setRequestLetters(prev => [...prev, { file: null, preview: null }]);
+  };
+
+  const addSiteImage = () => {
+    setSiteImages(prev => [...prev, { file: null, preview: null }]);
+  };
+
+  const removeRequestLetter = (index) => {
+    setRequestLetters(prev => {
+      // Clean up preview URL if it exists
+      if (prev[index] && prev[index].preview) {
+        URL.revokeObjectURL(prev[index].preview);
+      }
+      
       const updated = prev.filter((_, i) => i !== index);
       // Ensure we always have at least one field
       if (updated.length === 0) {
-        return [{ file: null }];
+        return [{ file: null, preview: null }];
+      }
+      return updated;
+    });
+  };
+
+  const removeSiteImage = (index) => {
+    setSiteImages(prev => {
+      // Clean up preview URL if it exists
+      if (prev[index] && prev[index].preview) {
+        URL.revokeObjectURL(prev[index].preview);
+      }
+      
+      const updated = prev.filter((_, i) => i !== index);
+      // Ensure we always have at least one field
+      if (updated.length === 0) {
+        return [{ file: null, preview: null }];
       }
       return updated;
     });
@@ -104,31 +209,172 @@ const CreateRequest = () => {
     setShowPopup(false);
     if (confirmed) {
       try {
+        setIsSubmitting(true);
         // Calculate total before submission
         calculateTotal();
         
-        const requestData = {
-          projectName,
-          location: projectArea,
-          status: "PENDING",
-          workflowStep: 1,
-          additionalNotes,
-          estimation: JSON.stringify(estimationRows),
-          totalEstimate: parseFloat(totalEstimate) || 0,
-          natureOfWork,
-          startDate,
-          comment: purpose,
-        };
+        // Check if we have files to upload
+        const hasFiles = requestLetters.some(entry => entry.file) || siteImages.some(entry => entry.file);
+        
+        let response;
+        
+        if (hasFiles) {
+          // Create FormData for file upload
+          const formData = new FormData();
+          
+          // Add text data
+          formData.append('projectName', projectName);
+          formData.append('location', projectArea);
+          formData.append('status', 'PENDING');
+          formData.append('workflowStep', '1');
+          formData.append('additionalNotes', additionalNotes);
+          formData.append('estimation', JSON.stringify(estimationRows));
+          formData.append('totalEstimate', parseFloat(totalEstimate) || 0);
+          formData.append('natureOfWork', natureOfWork);
+          formData.append('startDate', startDate);
+          formData.append('comment', purpose);
+          
+          // Add request letters
+          requestLetters.forEach((entry, index) => {
+            if (entry.file) {
+              formData.append(`requestLetter_${index}`, entry.file);
+            }
+          });
+          
+          // Add site images
+          siteImages.forEach((entry, index) => {
+            if (entry.file) {
+              formData.append(`siteImage_${index}`, entry.file);
+            }
+          });
+          
+          console.log("Submitting form data with files using FormData");
+          console.log("FormData contents:");
+          for (let [key, value] of formData.entries()) {
+            if (value instanceof File) {
+              console.log(`${key}: File - ${value.name} (${value.size} bytes, ${value.type})`);
+            } else {
+              console.log(`${key}:`, value);
+            }
+          }
+          
+          // Log the request details
+          console.log("Request details:", {
+            url: 'http://localhost:8808/api/createFlow',
+            method: 'POST',
+            hasFiles: hasFiles,
+            fileCount: {
+              requestLetters: requestLetters.filter(entry => entry.file).length,
+              siteImages: siteImages.filter(entry => entry.file).length
+            }
+          });
+          
+          try {
+            response = await axios.post('http://localhost:8808/api/createFlow', formData, {
+              withCredentials: true,
+            });
+          } catch (formDataError) {
+            console.error("FormData submission failed:", formDataError);
+            console.error("FormData error details:", {
+              status: formDataError.response?.status,
+              statusText: formDataError.response?.statusText,
+              data: formDataError.response?.data,
+              headers: formDataError.response?.headers,
+              message: formDataError.message
+            });
+            
+            if (formDataError.response?.status === 415) {
+              console.log("Server doesn't support FormData, trying JSON with base64 files...");
+              
+              // Fallback: Convert files to base64 and send as JSON
+              const requestDataWithFiles = {
+                projectName,
+                location: projectArea,
+                status: "PENDING",
+                workflowStep: 1,
+                additionalNotes,
+                estimation: JSON.stringify(estimationRows),
+                totalEstimate: parseFloat(totalEstimate) || 0,
+                natureOfWork,
+                startDate,
+                comment: purpose,
+                requestLetters: [],
+                siteImages: []
+              };
+              
+              // Convert request letters to base64
+              for (let i = 0; i < requestLetters.length; i++) {
+                const entry = requestLetters[i];
+                if (entry.file) {
+                  const base64 = await fileToBase64(entry.file);
+                  requestDataWithFiles.requestLetters.push({
+                    name: entry.file.name,
+                    type: entry.file.type,
+                    size: entry.file.size,
+                    data: base64
+                  });
+                }
+              }
+              
+              // Convert site images to base64
+              for (let i = 0; i < siteImages.length; i++) {
+                const entry = siteImages[i];
+                if (entry.file) {
+                  const base64 = await fileToBase64(entry.file);
+                  requestDataWithFiles.siteImages.push({
+                    name: entry.file.name,
+                    type: entry.file.type,
+                    size: entry.file.size,
+                    data: base64
+                  });
+                }
+              }
+              
+              console.log("Submitting as JSON with base64 files");
+              console.log("JSON payload size:", JSON.stringify(requestDataWithFiles).length, "characters");
+              
+              try {
+                response = await axios.post('http://localhost:8808/api/createFlow-json', requestDataWithFiles, {
+                  headers: { 'Content-Type': 'application/json' },
+                  withCredentials: true,
+                });
+              } catch (jsonError) {
+                console.error("JSON submission also failed:", jsonError);
+                console.error("JSON error details:", {
+                  status: jsonError.response?.status,
+                  statusText: jsonError.response?.statusText,
+                  data: jsonError.response?.data,
+                  headers: jsonError.response?.headers,
+                  message: jsonError.message
+                });
+                throw jsonError;
+              }
+            } else {
+              throw formDataError;
+            }
+          }
+        } else {
+          // Send as JSON if no files
+          const requestData = {
+            projectName,
+            location: projectArea,
+            status: "PENDING",
+            workflowStep: 1,
+            additionalNotes,
+            estimation: JSON.stringify(estimationRows),
+            totalEstimate: parseFloat(totalEstimate) || 0,
+            natureOfWork,
+            startDate,
+            comment: purpose,
+          };
 
-        // Note: File uploads are temporarily disabled for debugging the 415 error.
-        // We are sending data as JSON to test the endpoint.
+          console.log("Submitting form data as JSON:", requestData);
 
-        console.log("Submitting form data as JSON:", requestData);
-
-        const response = await axios.post('http://localhost:8808/api/createFlow-json', requestData, {
-          headers: { 'Content-Type': 'application/json' },
-          withCredentials: true,
-        });
+          response = await axios.post('http://localhost:8808/api/createFlow-json', requestData, {
+            headers: { 'Content-Type': 'application/json' },
+            withCredentials: true,
+          });
+        }
 
         console.log("Submission successful:", response);
         setSuccessMessage("Request submitted successfully! 🎉");
@@ -143,6 +389,8 @@ const CreateRequest = () => {
           headers: err.response?.headers
         });
         alert(`Submission failed: ${err.response?.data?.message || err.message || 'Unknown error'}`);
+      } finally {
+        setIsSubmitting(false);
       }
     }
   };
@@ -165,8 +413,6 @@ const CreateRequest = () => {
         startDate,
         comment: purpose,
       };
-
-      // Note: File uploads are temporarily disabled.
       
       console.log("Saving draft as JSON:", draftData);
 
@@ -216,6 +462,13 @@ const CreateRequest = () => {
       alert("Test submission successful! The server accepts JSON data.");
     } catch (err) {
       console.error("Test submission failed:", err);
+      console.error("Test submission error details:", {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        headers: err.response?.headers,
+        message: err.message
+      });
       alert(`Test submission failed: ${err.response?.data?.message || err.message}`);
     }
   };
@@ -255,27 +508,54 @@ const CreateRequest = () => {
       case "request-letters":
         return (
           <div className="page-content">
+            <h3>Upload Request Letters (PDF files only)</h3>
+            <p style={{color: '#666', marginBottom: '20px'}}>Upload PDF files for request letters. Maximum file size: 10MB per file.</p>
             {requestLetters.map((entry, i) => (
               <div key={i} className="file-upload-container">
-                <input type="file" accept="application/pdf" onChange={(e) => updateFiles(setRequestLetters, i, e.target.files[0])} disabled />
-                <button onClick={() => removeField(setRequestLetters, i)}>✕</button>
+                <input 
+                  type="file" 
+                  accept="application/pdf" 
+                  onChange={(e) => updateRequestLetters(i, e.target.files[0])} 
+                />
+                {entry.file && (
+                  <div className="file-info">
+                    <span>📄 {entry.file.name}</span>
+                    <span>{(entry.file.size / 1024 / 1024).toFixed(2)} MB</span>
+                  </div>
+                )}
+                <button onClick={() => removeRequestLetter(i)}>✕</button>
               </div>
             ))}
-            <button className="btn" onClick={() => addField(setRequestLetters)}>Add Letter</button>
-            <p style={{color: 'orange'}}>File uploads are temporarily disabled.</p>
+            <button className="btn" onClick={addRequestLetter}>Add Letter</button>
           </div>
         );
       case "site-images":
         return (
           <div className="page-content">
+            <h3>Upload Site Images</h3>
+            <p style={{color: '#666', marginBottom: '20px'}}>Upload images of the project site. Supported formats: JPG, PNG, GIF. Maximum file size: 10MB per image.</p>
             {siteImages.map((entry, i) => (
               <div key={i} className="file-upload-container">
-                <input type="file" accept="image/*" onChange={(e) => updateFiles(setSiteImages, i, e.target.files[0])} disabled />
-                <button onClick={() => removeField(setSiteImages, i)}>✕</button>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={(e) => updateSiteImages(i, e.target.files[0])} 
+                />
+                {entry.file && (
+                  <div className="file-info">
+                    <span>🖼️ {entry.file.name}</span>
+                    <span>{(entry.file.size / 1024 / 1024).toFixed(2)} MB</span>
+                  </div>
+                )}
+                {entry.preview && (
+                  <div className="image-preview">
+                    <img src={entry.preview} alt="Preview" />
+                  </div>
+                )}
+                <button onClick={() => removeSiteImage(i)}>✕</button>
               </div>
             ))}
-            <button className="btn" onClick={() => addField(setSiteImages)}>Add Image</button>
-            <p style={{color: 'orange'}}>File uploads are temporarily disabled.</p>
+            <button className="btn" onClick={addSiteImage}>Add Image</button>
           </div>
         );
       case "project-estimation":
@@ -339,10 +619,12 @@ const CreateRequest = () => {
           ))}
         </ul>
         <div className="buttons">
-          <button className="btn discard" onClick={() => navigate(-1)}>Discard</button>
-          <button className="btn submit" onClick={handleSubmit}>Save & Submit</button>
-          <button className="btn draft" onClick={handleSaveDraft}>Save Draft</button>
-          <button className="btn test" onClick={testSubmission} style={{backgroundColor: '#ffc107', color: '#000'}}>Test Submit (No Files)</button>
+          <button className="btn discard" onClick={() => navigate(-1)} disabled={isSubmitting}>Discard</button>
+          <button className="btn submit" onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? 'Submitting...' : 'Save & Submit'}
+          </button>
+          <button className="btn draft" onClick={handleSaveDraft} disabled={isSubmitting}>Save Draft</button>
+          <button className="btn test" onClick={testSubmission} style={{backgroundColor: '#ffc107', color: '#000'}} disabled={isSubmitting}>Test Submit (No Files)</button>
         </div>
       </div>
 
