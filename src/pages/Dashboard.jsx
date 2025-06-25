@@ -11,6 +11,7 @@ const Dashboard = () => {
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [motivationalText, setMotivationalText] = useState("");
   const [firstName, setFirstName] = useState("User");
+  const [fullName, setFullName] = useState("User");
 
   const [myRequests, setMyRequests] = useState([]);
   const [allRequests, setAllRequests] = useState([]);
@@ -34,7 +35,11 @@ const Dashboard = () => {
     setMotivationalText(quote);
 
     getSessionUser().then((name) => {
-      if (name) setFirstName(name);
+      if (name) {
+        const userName = typeof name === 'object' ? (name.name || name.fullName || name.firstName) : name;
+        setFirstName(userName);
+        setFullName(userName);
+      }
     });
 
     // Fetch requests with loading state
@@ -82,6 +87,14 @@ const Dashboard = () => {
     };
   }, [dropdownVisible]);
 
+  const getInitials = (name) => {
+    if (!name || name === "User") return "U";
+    const nameParts = name.trim().split(' ');
+    if (nameParts.length >= 2) {
+      return (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase();
+    }
+    return name[0].toUpperCase();
+  };
 
   const renderRequestDetails = (request) => {
     if (!request) return null;
@@ -162,11 +175,9 @@ const Dashboard = () => {
         <div className="motivational-text">{motivationalText}</div>
         <div className="profile-container">
         <button className="profile-btn" onClick={() => setDropdownVisible(!dropdownVisible)}>
-          <img
-            src="https://pbs.twimg.com/profile_images/1607576872589889537/mQxBneCJ_400x400.jpg"
-            alt="Profile"
-            className="profile-img"
-          />
+          <div className="profile-initial">
+            {getInitials(fullName)}
+          </div>
           <span>Mr. {firstName}</span>
           <span className="arrow">&#x25BE;</span> {/* Unicode for downward arrow */}
         </button>
