@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "../styles/CreateRequest.css";
 import { useNavigate } from "react-router-dom";
+import MaterialAutocomplete from "./MaterialAutocomplete";
 import { createRequest } from "../services/requestService";
 import axios from "axios";
 
@@ -81,7 +82,6 @@ const CreateRequest = () => {
         }
 
         updated[index] = { file, preview: null }; // PDFs don't need preview
-        console.log(`Request letter updated at index ${index}:`, file.name, file.size, file.type);
         return updated;
       });
     }
@@ -113,7 +113,6 @@ const CreateRequest = () => {
         // Create preview for images
         const preview = URL.createObjectURL(file);
         updated[index] = { file, preview };
-        console.log(`Site image updated at index ${index}:`, file.name, file.size, file.type);
         return updated;
       });
     }
@@ -180,9 +179,10 @@ const CreateRequest = () => {
   };
 
   const calculateTotal = () => {
-    const total = estimationRows.reduce((acc, row) => acc + (Number(row.subtotal) || 0), 0);
-    setTotalEstimate(total.toFixed(2));
-  };
+  const total = estimationRows.reduce((acc, row) => acc + (Number(row.subtotal) || 0), 0);
+  return total.toFixed(2);
+};
+
   
 
   // Form submission
@@ -248,44 +248,12 @@ const CreateRequest = () => {
             }
           });
           
-          console.log("Submitting form data with files using FormData");
-          console.log("FormData contents:");
-          for (let [key, value] of formData.entries()) {
-            if (value instanceof File) {
-              console.log(`${key}: File - ${value.name} (${value.size} bytes, ${value.type})`);
-            } else {
-              console.log(`${key}:`, value);
-            }
-          }
-          
-          // Log the request details
-          console.log("Request details:", {
-            url: 'http://localhost:8808/api/createFlow',
-            method: 'POST',
-            hasFiles: hasFiles,
-            fileCount: {
-              requestLetters: requestLetters.filter(entry => entry.file).length,
-              siteImages: siteImages.filter(entry => entry.file).length
-            }
-          });
-          
           try {
             response = await axios.post('http://localhost:8808/api/createFlow', formData, {
               withCredentials: true,
             });
           } catch (formDataError) {
-            console.error("FormData submission failed:", formDataError);
-            console.error("FormData error details:", {
-              status: formDataError.response?.status,
-              statusText: formDataError.response?.statusText,
-              data: formDataError.response?.data,
-              headers: formDataError.response?.headers,
-              message: formDataError.message
-            });
-            
             if (formDataError.response?.status === 415) {
-              console.log("Server doesn't support FormData, trying JSON with base64 files...");
-              
               // Fallback: Convert files to base64 and send as JSON
               const requestDataWithFiles = {
                 projectName,
@@ -330,25 +298,10 @@ const CreateRequest = () => {
                 }
               }
               
-              console.log("Submitting as JSON with base64 files");
-              console.log("JSON payload size:", JSON.stringify(requestDataWithFiles).length, "characters");
-              
-              try {
-                response = await axios.post('http://localhost:8808/api/createFlow-json', requestDataWithFiles, {
-                  headers: { 'Content-Type': 'application/json' },
-                  withCredentials: true,
-                });
-              } catch (jsonError) {
-                console.error("JSON submission also failed:", jsonError);
-                console.error("JSON error details:", {
-                  status: jsonError.response?.status,
-                  statusText: jsonError.response?.statusText,
-                  data: jsonError.response?.data,
-                  headers: jsonError.response?.headers,
-                  message: jsonError.message
-                });
-                throw jsonError;
-              }
+              response = await axios.post('http://localhost:8808/api/createFlow-json', requestDataWithFiles, {
+                headers: { 'Content-Type': 'application/json' },
+                withCredentials: true,
+              });
             } else {
               throw formDataError;
             }
@@ -368,26 +321,16 @@ const CreateRequest = () => {
             comment: purpose,
           };
 
-          console.log("Submitting form data as JSON:", requestData);
-
           response = await axios.post('http://localhost:8808/api/createFlow-json', requestData, {
             headers: { 'Content-Type': 'application/json' },
             withCredentials: true,
           });
         }
 
-        console.log("Submission successful:", response);
         setSuccessMessage("Request submitted successfully! 🎉");
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
       } catch (err) {
-        console.error("Submission error:", err);
-        console.error("Error details:", {
-          status: err.response?.status,
-          statusText: err.response?.statusText,
-          data: err.response?.data,
-          headers: err.response?.headers
-        });
         alert(`Submission failed: ${err.response?.data?.message || err.message || 'Unknown error'}`);
       } finally {
         setIsSubmitting(false);
@@ -414,17 +357,13 @@ const CreateRequest = () => {
         comment: purpose,
       };
       
-      console.log("Saving draft as JSON:", draftData);
-
       const response = await axios.post('http://localhost:8808/api/createFlow-json', draftData, {
         headers: { 'Content-Type': 'application/json' },
         withCredentials: true,
       });
 
-      console.log("Draft saved successfully:", response);
       alert("Draft saved successfully.");
     } catch (err) {
-      console.error("Draft save error:", err);
       alert(`Draft save failed: ${err.response?.data?.message || err.message || 'Unknown error'}`);
     }
   };
@@ -448,27 +387,12 @@ const CreateRequest = () => {
         comment: purpose || "Test purpose"
       };
 
-      console.log("Testing submission with JSON data:", testData);
-      
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await axios.post('http://localhost:8808/api/createFlow-json', testData, {
+        headers: { 'Content-Type': 'application/json' },
         withCredentials: true,
-      };
-
-      const response = await axios.post('http://localhost:8808/api/createFlow-json', testData, config);
-      console.log("Test submission successful:", response);
+      });
       alert("Test submission successful! The server accepts JSON data.");
     } catch (err) {
-      console.error("Test submission failed:", err);
-      console.error("Test submission error details:", {
-        status: err.response?.status,
-        statusText: err.response?.statusText,
-        data: err.response?.data,
-        headers: err.response?.headers,
-        message: err.message
-      });
       alert(`Test submission failed: ${err.response?.data?.message || err.message}`);
     }
   };
@@ -575,13 +499,45 @@ const CreateRequest = () => {
               <tbody>
                 {estimationRows.map((row, i) => (
                   <tr key={i}>
-                    <td><input value={row.item} onChange={(e) => updateEstimation(i, "item", e.target.value)} /></td>
-                    <td><input value={row.description} onChange={(e) => updateEstimation(i, "description", e.target.value)} /></td>
-                    <td><input type="number" value={row.quantity} onChange={(e) => updateEstimation(i, "quantity", e.target.value)} /></td>
-                    <td><input type="number" value={row.rate} onChange={(e) => updateEstimation(i, "rate", e.target.value)} /></td>
-                    <td><input value={row.subtotal.toFixed(2)} readOnly /></td>
-                    <td><button onClick={() => removeEstimationRow(i)}>✕</button></td>
-                  </tr>
+                  <td>
+                  <MaterialAutocomplete
+                    value={row}
+                    onChange={(val) => {
+                      updateEstimation(i, "item", val.item);
+                      updateEstimation(i, "rate", val.rate);
+                      updateEstimation(i, "description", val.itemDescription); 
+                    }}
+                  />
+                  </td>
+                  <td>
+                    <input
+                      value={row.description}
+                      onChange={(e) => updateEstimation(i, "description", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      value={row.quantity}
+                      onChange={(e) => updateEstimation(i, "quantity", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      value={row.rate}
+                      readOnly
+                      className="input-readonly"
+                    />
+                  </td>
+                  <td>
+                    <input value={row.subtotal.toFixed(2)} readOnly />
+                  </td>
+                  <td>
+                    <button onClick={() => removeEstimationRow(i)}>✕</button>
+                  </td>
+                </tr>
+                
                 ))}
               </tbody>
             </table>
