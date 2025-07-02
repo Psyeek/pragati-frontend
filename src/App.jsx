@@ -5,6 +5,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import CreateRequest from "./pages/CreateRequest";
 import ProtectedRoute from "./pages/ProtectedRoute";
+import Profile from "./pages/Profile";
 import { AuthProvider } from "./context/AuthContext";
 import "./App.css";
 
@@ -31,6 +32,7 @@ const App = () => {
               </ProtectedRoute>
             }
           />
+          <Route path="/profile" element={<Profile />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

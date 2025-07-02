@@ -42,3 +42,14 @@ export const getSessionUser = async () => {
   }
 };
 
+export const getUserProfile = async () => {
+  try {
+    const response = await axios.get(`${API}/user/profile`, {
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Failed to fetch user profile:", error?.response?.data || error.message);
+    return null;
+  }
+};

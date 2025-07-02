@@ -183,7 +183,7 @@ const Dashboard = () => {
         </button>
           {dropdownVisible && (
             <div className="dropdown">
-              <button onClick={() => navigate("/settings")}>My Profile & Settings</button>
+              <button onClick={() => navigate("/profile")}>My Profile & Settings</button>
               <button
                 className="btn"
                 style={{ background: "#f44336", color: "white" }}
